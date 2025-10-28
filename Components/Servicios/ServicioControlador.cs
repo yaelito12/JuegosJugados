@@ -33,6 +33,9 @@ namespace Act.Components.Servicios
         {
             await _servicioJuegos.ActualizarJuego(juego);
         }
-
+        public async Task EliminarJuego(Juego juego)
+        {
+            await _servicioJuegos.EliminarJuego(juego);
+        }
     }
 }
