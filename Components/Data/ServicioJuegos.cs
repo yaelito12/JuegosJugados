@@ -1,40 +1,81 @@
 ﻿using Act.Components.Data;
+using Microsoft.Data.Sqlite;
 
-
-namespace Act.Components.Data
+namespace Act.Components.Servicios
 {
     public class ServicioJuegos
     {
-        private List<Juego> juegos = new List<Juego>
-    {
-    new Juego{Identificador=1, Nombre="Minecraft" , Jugado=false},
-    new Juego{Identificador= 2, Nombre= "RDR2", Jugado= true},
-     new Juego{Identificador=3, Nombre="GTAVI" , Jugado=false},
-    new Juego{Identificador= 4, Nombre= "Bloodborne", Jugado= true}
-};
-        public Task<List<Juego>> ObtenerJuegos() => Task.FromResult(juegos);
-        public Task AgregarJuego(Juego juego)
+        private List<Juego> juegos = new List<Juego>();
+
+        public async Task<List<Juego>> ObtenerJuegos()
         {
-            juegos.Add(juego);
-            return Task.CompletedTask;
+            juegos.Clear();
+            string ruta = "mibase.db";
+            using var conexion = new SqliteConnection($"DataSource={ruta}");
+            await conexion.OpenAsync();
+            var comando = conexion.CreateCommand();
+            comando.CommandText = @"SELECT Identificador, Nombre, Jugado FROM Juegos";
+
+            using var lector = await comando.ExecuteReaderAsync();
+            while (await lector.ReadAsync())
+            {
+                juegos.Add(new Juego
+                {
+                    Identificador = lector.GetInt32(0),
+                    Nombre = lector.GetString(1),
+                    Jugado = lector.GetInt32(2) == 1
+                });
+            }
+            return juegos;
         }
 
-        public Task ActualizarJuego(Juego juego)
+        public async Task AgregarJuego(Juego juego)
         {
-            var juegoExistente = juegos.FirstOrDefault(j => j.Identificador == juego.Identificador);
-            if (juegoExistente != null)
-            {
-                juegoExistente.Nombre = juego.Nombre;
-                juegoExistente.Jugado = juego.Jugado;
-            }
-            return Task.CompletedTask;
+            string ruta = "mibase.db";
+            using var conexion = new SqliteConnection($"DataSource={ruta}");
+            await conexion.OpenAsync();
+            var comando = conexion.CreateCommand();
+            comando.CommandText = @"
+                INSERT INTO Juegos (Identificador, Nombre, Jugado) 
+                VALUES ($IDENTIFICADOR, $NOMBRE, $JUGADO)";
+
+            comando.Parameters.AddWithValue("$IDENTIFICADOR", juego.Identificador);
+            comando.Parameters.AddWithValue("$NOMBRE", juego.Nombre);
+            comando.Parameters.AddWithValue("$JUGADO", juego.Jugado ? 1 : 0);
+
+            await comando.ExecuteNonQueryAsync();
+            juegos.Add(juego);
         }
-        public Task EliminarJuego(Juego juego)
+
+        public async Task ActualizarJuego(Juego juego)
         {
-            juegos.RemoveAll(j => j.Identificador == juego.Identificador);
-            return Task.CompletedTask;
+            string ruta = "mibase.db";
+            using var conexion = new SqliteConnection($"DataSource={ruta}");
+            await conexion.OpenAsync();
+            var comando = conexion.CreateCommand();
+            comando.CommandText = @"
+                UPDATE Juegos 
+                SET Nombre = $NOMBRE, Jugado = $JUGADO 
+                WHERE Identificador = $IDENTIFICADOR";
+
+            comando.Parameters.AddWithValue("$IDENTIFICADOR", juego.Identificador);
+            comando.Parameters.AddWithValue("$NOMBRE", juego.Nombre);
+            comando.Parameters.AddWithValue("$JUGADO", juego.Jugado ? 1 : 0);
+
+            await comando.ExecuteNonQueryAsync();
+        }
+
+        public async Task EliminarJuego(int identificador)
+        {
+            string ruta = "mibase.db";
+            using var conexion = new SqliteConnection($"DataSource={ruta}");
+            await conexion.OpenAsync();
+            var comando = conexion.CreateCommand();
+            comando.CommandText = @"DELETE FROM Juegos WHERE Identificador = $IDENTIFICADOR";
+
+            comando.Parameters.AddWithValue("$IDENTIFICADOR", identificador);
+
+            await comando.ExecuteNonQueryAsync();
         }
     }
-
-
 }
